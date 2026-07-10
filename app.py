@@ -31,7 +31,8 @@ COLUMNS = [
 
 USERS = {
     "Admin_Nizam": "admin123",
-    "Engineer_Nizam": "engineer123",
+    "Engineer_Nizam": "nizam123",
+    "Engineer_Naim": "naim123",
     "Student_Nizam": "student123",
 }
 
