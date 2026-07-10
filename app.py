@@ -37,7 +37,8 @@ USERS = {
 
 
 def login_page():
-    st.title("🔐 Login Page")
+    st.title("🔐 AI-Driven Predictive Maintenance Scheduling System for Industrial Equipment
+")
     st.write("Please enter your username and password to access the system.")
 
     username = st.text_input("Username")
