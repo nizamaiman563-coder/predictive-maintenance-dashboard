@@ -30,9 +30,9 @@ COLUMNS = [
 # ============================================================
 
 USERS = {
-    "Admin": "admin123",
-    "Engineer": "engineer123",
-    "Student": "student123",
+    "Admin_Nizam": "admin123",
+    "Engineer_Nizam": "engineer123",
+    "Student_Nizam": "student123",
 }
 
 
