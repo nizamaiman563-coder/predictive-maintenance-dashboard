@@ -51,6 +51,7 @@ USERS = {
     "Engineer_Nizam": "nizam123",
     "Engineer_Naim": "naim123",
     "Student_Nizam": "nizam123",
+    "Engineer_Haziqah": "haziqah123",
 }
 
 
