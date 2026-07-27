@@ -1,4 +1,4 @@
-import html
+aimport html
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -14,7 +14,7 @@ import streamlit as st
 # CONFIGURATION
 # ============================================================
 
-APP_NAME = "AI-Driven Predictive Maintenance"
+APP_NAME = "ReliabilityIQ"
 APP_TITLE = "AI-Driven Predictive Maintenance"
 APP_SUBTITLE = "Industrial equipment reliability and maintenance intelligence"
 APP_DIR = Path(__file__).resolve().parent
@@ -395,8 +395,73 @@ def inject_powerbi_style():
             backdrop-filter: blur(12px);
         }
 
-        [data-testid="stToolbar"], #MainMenu, footer {
+        #MainMenu, footer {
             visibility: hidden;
+        }
+
+        /* Keep the sidebar opener obvious when the sidebar has been collapsed. */
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="collapsedControl"] {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: block !important;
+            position: fixed !important;
+            top: 0.75rem !important;
+            left: 0.75rem !important;
+            z-index: 999999 !important;
+        }
+
+        button[data-testid="stSidebarCollapsedControl"],
+        [data-testid="stSidebarCollapsedControl"] button,
+        button[data-testid="collapsedControl"],
+        [data-testid="collapsedControl"] button {
+            min-width: 7.2rem !important;
+            height: 2.75rem !important;
+            padding: 0 0.9rem !important;
+            border: 1px solid rgba(255,255,255,0.24) !important;
+            border-radius: 12px !important;
+            background: linear-gradient(100deg, #0f1f3d, #2563eb) !important;
+            color: #ffffff !important;
+            box-shadow: 0 10px 24px rgba(15,31,61,0.28) !important;
+        }
+
+        button[data-testid="stSidebarCollapsedControl"]::after,
+        [data-testid="stSidebarCollapsedControl"] button::after,
+        button[data-testid="collapsedControl"]::after,
+        [data-testid="collapsedControl"] button::after {
+            content: "  MENU";
+            color: #ffffff;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.055em;
+        }
+
+        button[data-testid="stSidebarCollapsedControl"] svg,
+        [data-testid="stSidebarCollapsedControl"] button svg,
+        button[data-testid="collapsedControl"] svg,
+        [data-testid="collapsedControl"] button svg {
+            fill: #ffffff !important;
+            color: #ffffff !important;
+        }
+
+        [data-testid="stSidebarCollapseButton"] button,
+        button[data-testid="stSidebarCollapseButton"] {
+            border-radius: 9px !important;
+            background: rgba(255,255,255,0.10) !important;
+            border: 1px solid rgba(255,255,255,0.16) !important;
+        }
+
+        .top-menu-title {
+            color: #0f172a;
+            font-size: 0.98rem;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        .top-menu-help {
+            color: #64748b;
+            font-size: 0.76rem;
+            line-height: 1.35;
         }
 
         .block-container {
@@ -1082,11 +1147,32 @@ module_labels = {
     "About Project": "ⓘ  About Project",
 }
 
-menu = st.sidebar.radio(
+module_keys = list(module_labels.keys())
+
+# Keep the left sidebar and the always-visible page menu synchronized.
+st.session_state.setdefault("active_module", "Dashboard")
+if st.session_state["active_module"] not in module_keys:
+    st.session_state["active_module"] = "Dashboard"
+st.session_state.setdefault("sidebar_module", st.session_state["active_module"])
+st.session_state.setdefault("top_module", st.session_state["active_module"])
+
+
+def sync_module_navigation(source_key, target_key):
+    selected = st.session_state.get(source_key, "Dashboard")
+    if selected not in module_keys:
+        selected = "Dashboard"
+    st.session_state["active_module"] = selected
+    st.session_state[target_key] = selected
+
+
+st.sidebar.radio(
     "Workspace",
-    list(module_labels.keys()),
+    module_keys,
     format_func=lambda item: module_labels[item],
     label_visibility="collapsed",
+    key="sidebar_module",
+    on_change=sync_module_navigation,
+    args=("sidebar_module", "top_module"),
 )
 
 st.sidebar.markdown("<div style='height:0.45rem'></div>", unsafe_allow_html=True)
@@ -1102,6 +1188,34 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# Always-visible navigation. Users can change pages here even if the sidebar is hidden.
+with st.container(border=True):
+    nav_title_col, nav_select_col, nav_help_col = st.columns(
+        [0.9, 2.15, 2.7],
+        vertical_alignment="center",
+    )
+    with nav_title_col:
+        st.markdown(
+            '<div class="top-menu-title">☰ PAGE MENU</div>',
+            unsafe_allow_html=True,
+        )
+    with nav_select_col:
+        st.selectbox(
+            "Choose a page",
+            module_keys,
+            format_func=lambda item: module_labels[item],
+            key="top_module",
+            on_change=sync_module_navigation,
+            args=("top_module", "sidebar_module"),
+        )
+    with nav_help_col:
+        st.markdown(
+            '<div class="top-menu-help">Use this menu at any time. The blue <b>MENU</b> button in the upper-left corner also opens the full sidebar.</div>',
+            unsafe_allow_html=True,
+        )
+
+menu = st.session_state.get("active_module", "Dashboard")
 
 if menu != "Dashboard":
     render_module_header(menu)
