@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 
@@ -245,6 +246,205 @@ def calculate_next_maintenance(row):
     return next_date.strftime("%Y-%m-%d")
 
 
+
+
+# ============================================================
+# POWER BI-STYLE UI HELPERS
+# ============================================================
+
+def inject_powerbi_style():
+    st.markdown(
+        """
+        <style>
+        :root {
+            --dashboard-bg: #f3f6fb;
+            --dashboard-card: #ffffff;
+            --dashboard-text: #172033;
+            --dashboard-muted: #697386;
+            --dashboard-blue: #2463eb;
+            --dashboard-navy: #13213c;
+            --dashboard-border: #e4e9f2;
+        }
+
+        .stApp {
+            background: var(--dashboard-bg);
+        }
+
+        [data-testid="stHeader"] {
+            background: rgba(243, 246, 251, 0.92);
+        }
+
+        [data-testid="stSidebar"] {
+            background: #101b31;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: #f7f9fc;
+        }
+
+        [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div {
+            background: #ffffff;
+            color: #172033;
+            border-radius: 8px;
+        }
+
+        [data-testid="stSidebar"] .stSelectbox svg,
+        [data-testid="stSidebar"] .stSelectbox input {
+            color: #172033;
+        }
+
+        .block-container {
+            max-width: 1500px;
+            padding-top: 1.1rem;
+            padding-bottom: 2rem;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(100deg, #13213c 0%, #1c3768 58%, #2463eb 100%);
+            color: #ffffff;
+            border-radius: 14px;
+            padding: 22px 26px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 22px rgba(19, 33, 60, 0.16);
+        }
+
+        .dashboard-header h1 {
+            color: #ffffff;
+            font-size: 1.75rem;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+        }
+
+        .dashboard-header p {
+            color: #dbe7ff;
+            margin: 0;
+            font-size: 0.96rem;
+        }
+
+        .section-title {
+            color: var(--dashboard-text);
+            font-size: 1.03rem;
+            font-weight: 700;
+            margin: 4px 0 8px 0;
+        }
+
+        .kpi-card {
+            background: var(--dashboard-card);
+            border: 1px solid var(--dashboard-border);
+            border-radius: 12px;
+            padding: 15px 17px;
+            min-height: 116px;
+            box-shadow: 0 3px 12px rgba(24, 39, 75, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: var(--kpi-color, #2463eb);
+        }
+
+        .kpi-label {
+            color: var(--dashboard-muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.055em;
+            margin-left: 3px;
+        }
+
+        .kpi-value {
+            color: var(--dashboard-text);
+            font-size: 1.9rem;
+            line-height: 1.1;
+            font-weight: 750;
+            margin: 9px 0 5px 3px;
+        }
+
+        .kpi-note {
+            color: var(--dashboard-muted);
+            font-size: 0.78rem;
+            margin-left: 3px;
+        }
+
+        .insight-box {
+            background: #ffffff;
+            border: 1px solid var(--dashboard-border);
+            border-left: 5px solid #2463eb;
+            border-radius: 10px;
+            padding: 13px 16px;
+            margin: 4px 0 12px 0;
+            color: var(--dashboard-text);
+        }
+
+        div[data-testid="stPlotlyChart"],
+        div[data-testid="stDataFrame"] {
+            background: #ffffff;
+            border: 1px solid var(--dashboard-border);
+            border-radius: 12px;
+            padding: 5px;
+            box-shadow: 0 3px 12px rgba(24, 39, 75, 0.05);
+        }
+
+        .stDownloadButton > button {
+            background: #2463eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 650;
+        }
+
+        .stDownloadButton > button:hover {
+            background: #1d4ed8;
+            color: #ffffff;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_kpi_card(label, value, note, color):
+    st.markdown(
+        f"""
+        <div class="kpi-card" style="--kpi-color: {color};">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{value}</div>
+            <div class="kpi-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def apply_powerbi_chart_layout(fig, height=360, show_legend=True):
+    fig.update_layout(
+        height=height,
+        margin=dict(l=20, r=20, t=55, b=20),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Arial", color="#263248", size=12),
+        title_font=dict(size=15, color="#172033"),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+        ),
+        showlegend=show_legend,
+        hoverlabel=dict(bgcolor="white", font_size=12),
+    )
+    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="#dce3ee")
+    fig.update_yaxes(gridcolor="#edf1f7", zeroline=False, linecolor="#dce3ee")
+    return fig
+
+
 # ============================================================
 # STREAMLIT PAGE SETUP
 # ============================================================
@@ -255,11 +455,10 @@ st.set_page_config(
     layout="wide"
 )
 
+inject_powerbi_style()
+
 check_login()
 logout_button()
-
-st.title("🛠️ AI-Driven Predictive Maintenance Scheduling System")
-st.caption("Reliability Engineering Dashboard for Industrial Equipment Maintenance")
 
 
 # ============================================================
@@ -294,47 +493,393 @@ st.sidebar.divider()
 st.sidebar.write("Data file:")
 st.sidebar.code(DATA_FILE)
 
+if menu != "Dashboard":
+    st.title("🛠️ AI-Driven Predictive Maintenance Scheduling System")
+    st.caption("Reliability Engineering Dashboard for Industrial Equipment Maintenance")
+
 
 # ============================================================
 # DASHBOARD MODULE
 # ============================================================
 
 if menu == "Dashboard":
-    st.subheader("📋 Machine Reliability Overview")
+    st.markdown(
+        """
+        <div class="dashboard-header">
+            <h1>Predictive Maintenance Executive Dashboard</h1>
+            <p>Real-time reliability, machine-risk, downtime, and maintenance-priority overview.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    total_machines = len(df_result)
-    high_risk = len(df_result[df_result["Risk_Level"] == "High Risk"])
-    medium_risk = len(df_result[df_result["Risk_Level"] == "Medium Risk"])
-    low_risk = len(df_result[df_result["Risk_Level"] == "Low Risk"])
+    # ------------------------
+    # Dashboard slicers
+    # ------------------------
+    st.markdown('<div class="section-title">Dashboard Filters</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns(4)
+    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([1.25, 1.25, 1.25, 1.6])
 
-    col1.metric("Total Machines", total_machines)
-    col2.metric("High Risk Machines", high_risk)
-    col3.metric("Medium Risk Machines", medium_risk)
-    col4.metric("Low Risk Machines", low_risk)
+    machine_type_options = sorted(df_result["Machine_Type"].dropna().unique().tolist())
+    criticality_options = [
+        item for item in ["High", "Medium", "Low"]
+        if item in df_result["Criticality"].unique()
+    ]
+    risk_options = [
+        item for item in ["High Risk", "Medium Risk", "Low Risk"]
+        if item in df_result["Risk_Level"].unique()
+    ]
 
-    st.divider()
+    with filter_col1:
+        selected_types = st.multiselect(
+            "Machine Type",
+            machine_type_options,
+            placeholder="All machine types",
+        )
 
-    search = st.text_input("🔍 Search machine by ID, name, or type")
+    with filter_col2:
+        selected_criticality = st.multiselect(
+            "Criticality",
+            criticality_options,
+            placeholder="All criticality levels",
+        )
+
+    with filter_col3:
+        selected_risks = st.multiselect(
+            "Risk Level",
+            risk_options,
+            placeholder="All risk levels",
+        )
+
+    with filter_col4:
+        search = st.text_input(
+            "Search Asset",
+            placeholder="Machine ID, name, or type",
+        )
 
     filtered_df = df_result.copy()
 
+    if selected_types:
+        filtered_df = filtered_df[filtered_df["Machine_Type"].isin(selected_types)]
+
+    if selected_criticality:
+        filtered_df = filtered_df[filtered_df["Criticality"].isin(selected_criticality)]
+
+    if selected_risks:
+        filtered_df = filtered_df[filtered_df["Risk_Level"].isin(selected_risks)]
+
     if search:
-        filtered_df = filtered_df[
-            filtered_df["Machine_ID"].str.contains(search, case=False, na=False) |
-            filtered_df["Machine_Name"].str.contains(search, case=False, na=False) |
-            filtered_df["Machine_Type"].str.contains(search, case=False, na=False)
+        search_mask = (
+            filtered_df["Machine_ID"].str.contains(search, case=False, na=False)
+            | filtered_df["Machine_Name"].str.contains(search, case=False, na=False)
+            | filtered_df["Machine_Type"].str.contains(search, case=False, na=False)
+        )
+        filtered_df = filtered_df[search_mask]
+
+    if filtered_df.empty:
+        st.warning("No machine records match the selected dashboard filters.")
+        st.stop()
+
+    # ------------------------
+    # Executive KPI cards
+    # ------------------------
+    total_machines = len(filtered_df)
+    urgent_count = int((filtered_df["Risk_Level"] == "High Risk").sum())
+    avg_availability = filtered_df["Availability"].mean()
+    avg_mtbf = filtered_df["MTBF"].mean()
+    total_downtime = filtered_df["Downtime_Hours"].sum()
+
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+
+    with kpi1:
+        render_kpi_card(
+            "Total Assets",
+            f"{total_machines}",
+            "Machines in current view",
+            "#2463eb",
+        )
+
+    with kpi2:
+        render_kpi_card(
+            "Average Availability",
+            f"{avg_availability:.2f}%",
+            "Target: 95% or higher",
+            "#0f9d76" if avg_availability >= 95 else "#f59e0b",
+        )
+
+    with kpi3:
+        render_kpi_card(
+            "Average MTBF",
+            f"{avg_mtbf:.1f} h",
+            "Higher means better reliability",
+            "#7c3aed",
+        )
+
+    with kpi4:
+        render_kpi_card(
+            "Total Downtime",
+            f"{total_downtime:.1f} h",
+            "Accumulated downtime hours",
+            "#f59e0b",
+        )
+
+    with kpi5:
+        render_kpi_card(
+            "Urgent Assets",
+            f"{urgent_count}",
+            "High-risk machines",
+            "#dc2626",
+        )
+
+    st.write("")
+
+    availability_gap = max(0, 95 - avg_availability)
+    worst_machine = filtered_df.sort_values(
+        by=["Risk_Level", "Downtime_Hours", "Failure_Count"],
+        key=lambda series: series.map({"High Risk": 3, "Medium Risk": 2, "Low Risk": 1})
+        if series.name == "Risk_Level" else series,
+        ascending=False,
+    ).iloc[0]
+
+    if urgent_count > 0:
+        insight_text = (
+            f"<b>{urgent_count} machine(s) require urgent attention.</b> "
+            f"The highest-priority asset is {worst_machine['Machine_ID']} - "
+            f"{worst_machine['Machine_Name']}, with {worst_machine['Downtime_Hours']:.1f} "
+            f"downtime hours and {worst_machine['Failure_Count']:.0f} recorded failures."
+        )
+    elif availability_gap > 0:
+        insight_text = (
+            f"No high-risk asset is detected, but average availability is "
+            f"{availability_gap:.2f} percentage points below the 95% operational target."
+        )
+    else:
+        insight_text = (
+            "Current assets are within the acceptable operating range. "
+            "Continue preventive maintenance and routine condition monitoring."
+        )
+
+    st.markdown(
+        f'<div class="insight-box"><b>Management Insight:</b> {insight_text}</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ------------------------
+    # Primary visual row
+    # ------------------------
+    risk_colors = {
+        "High Risk": "#dc2626",
+        "Medium Risk": "#f59e0b",
+        "Low Risk": "#0f9d76",
+    }
+
+    visual_left, visual_right = st.columns([0.82, 1.55])
+
+    with visual_left:
+        risk_count = (
+            filtered_df["Risk_Level"]
+            .value_counts()
+            .reindex(["High Risk", "Medium Risk", "Low Risk"], fill_value=0)
+            .reset_index()
+        )
+        risk_count.columns = ["Risk_Level", "Count"]
+
+        fig_risk = go.Figure(
+            data=[
+                go.Pie(
+                    labels=risk_count["Risk_Level"],
+                    values=risk_count["Count"],
+                    hole=0.62,
+                    marker=dict(
+                        colors=[risk_colors.get(level, "#94a3b8") for level in risk_count["Risk_Level"]],
+                        line=dict(color="#ffffff", width=3),
+                    ),
+                    textinfo="label+value",
+                    hovertemplate="%{label}: %{value} machine(s)<extra></extra>",
+                )
+            ]
+        )
+        fig_risk.add_annotation(
+            text=f"<b>{total_machines}</b><br><span style='font-size:11px'>Assets</span>",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=20, color="#172033"),
+        )
+        fig_risk.update_layout(title="Risk Level Distribution")
+        apply_powerbi_chart_layout(fig_risk, height=365, show_legend=False)
+        st.plotly_chart(fig_risk, use_container_width=True, config={"displayModeBar": False})
+
+    with visual_right:
+        availability_chart_df = filtered_df.sort_values("Availability", ascending=True)
+        fig_availability = px.bar(
+            availability_chart_df,
+            x="Availability",
+            y="Machine_Name",
+            orientation="h",
+            color="Risk_Level",
+            color_discrete_map=risk_colors,
+            text="Availability",
+            title="Asset Availability by Machine",
+            hover_data={
+                "Machine_ID": True,
+                "Failure_Count": True,
+                "Downtime_Hours": ":.1f",
+                "Availability": ":.2f",
+            },
+        )
+        fig_availability.update_traces(
+            texttemplate="%{text:.1f}%",
+            textposition="outside",
+            cliponaxis=False,
+        )
+        fig_availability.add_vline(
+            x=95,
+            line_dash="dash",
+            line_color="#64748b",
+            annotation_text="95% target",
+            annotation_position="top",
+        )
+        fig_availability.update_xaxes(range=[0, 103], title="Availability (%)")
+        fig_availability.update_yaxes(title="")
+        apply_powerbi_chart_layout(fig_availability, height=365, show_legend=True)
+        st.plotly_chart(fig_availability, use_container_width=True, config={"displayModeBar": False})
+
+    # ------------------------
+    # Secondary visual row
+    # ------------------------
+    visual_bottom_left, visual_bottom_right = st.columns(2)
+
+    with visual_bottom_left:
+        performance_df = filtered_df.sort_values("Downtime_Hours", ascending=False)
+        fig_performance = px.scatter(
+            performance_df,
+            x="Failure_Count",
+            y="Downtime_Hours",
+            size="Operating_Hours",
+            color="Risk_Level",
+            color_discrete_map=risk_colors,
+            hover_name="Machine_Name",
+            text="Machine_ID",
+            title="Failure Frequency vs Downtime",
+            hover_data={
+                "Operating_Hours": ":.0f",
+                "Availability": ":.2f",
+                "MTBF": ":.2f",
+            },
+            size_max=38,
+        )
+        fig_performance.update_traces(textposition="top center")
+        fig_performance.update_xaxes(title="Failure Count")
+        fig_performance.update_yaxes(title="Downtime Hours")
+        apply_powerbi_chart_layout(fig_performance, height=370, show_legend=True)
+        st.plotly_chart(fig_performance, use_container_width=True, config={"displayModeBar": False})
+
+    with visual_bottom_right:
+        maintenance_df = filtered_df.copy()
+        maintenance_df["Next_Maintenance_Date"] = pd.to_datetime(
+            maintenance_df["Next_Maintenance_Date"],
+            errors="coerce",
+        )
+        maintenance_df["Days_To_Maintenance"] = (
+            maintenance_df["Next_Maintenance_Date"] - pd.Timestamp(date.today())
+        ).dt.days
+        maintenance_df = maintenance_df.sort_values("Days_To_Maintenance").head(10)
+
+        fig_schedule = px.bar(
+            maintenance_df,
+            x="Days_To_Maintenance",
+            y="Machine_Name",
+            orientation="h",
+            color="Risk_Level",
+            color_discrete_map=risk_colors,
+            text="Days_To_Maintenance",
+            title="Maintenance Timing: Top 10 Assets",
+            hover_data={
+                "Machine_ID": True,
+                "Next_Maintenance_Date": "|%Y-%m-%d",
+                "Maintenance_Priority": True,
+            },
+        )
+        fig_schedule.update_traces(
+            texttemplate="%{text} days",
+            textposition="outside",
+            cliponaxis=False,
+        )
+        fig_schedule.update_xaxes(title="Days remaining (negative values are overdue)")
+        fig_schedule.update_yaxes(title="", categoryorder="total descending")
+        apply_powerbi_chart_layout(fig_schedule, height=370, show_legend=True)
+        st.plotly_chart(fig_schedule, use_container_width=True, config={"displayModeBar": False})
+
+    # ------------------------
+    # Priority table
+    # ------------------------
+    st.markdown('<div class="section-title">Asset Priority Register</div>', unsafe_allow_html=True)
+
+    priority_order = {"High Risk": 3, "Medium Risk": 2, "Low Risk": 1}
+    table_df = filtered_df.copy()
+    table_df["Priority_Order"] = table_df["Risk_Level"].map(priority_order)
+    table_df = table_df.sort_values(
+        by=["Priority_Order", "Downtime_Hours", "Failure_Count"],
+        ascending=[False, False, False],
+    )
+
+    table_df["Status"] = table_df["Risk_Level"].map(
+        {
+            "High Risk": "🔴 High Risk",
+            "Medium Risk": "🟠 Medium Risk",
+            "Low Risk": "🟢 Low Risk",
+        }
+    )
+
+    display_table = table_df[
+        [
+            "Status",
+            "Machine_ID",
+            "Machine_Name",
+            "Machine_Type",
+            "Criticality",
+            "Availability",
+            "MTBF",
+            "Failure_Count",
+            "Downtime_Hours",
+            "Maintenance_Priority",
+            "Next_Maintenance_Date",
         ]
+    ].copy()
+    display_table["Next_Maintenance_Date"] = pd.to_datetime(
+        display_table["Next_Maintenance_Date"],
+        errors="coerce",
+    )
 
-    st.dataframe(filtered_df, use_container_width=True)
+    st.dataframe(
+        display_table,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Status": st.column_config.TextColumn("Risk Status"),
+            "Availability": st.column_config.ProgressColumn(
+                "Availability",
+                format="%.2f%%",
+                min_value=0,
+                max_value=100,
+            ),
+            "MTBF": st.column_config.NumberColumn("MTBF (hours)", format="%.2f"),
+            "Failure_Count": st.column_config.NumberColumn("Failures", format="%d"),
+            "Downtime_Hours": st.column_config.NumberColumn("Downtime (hours)", format="%.1f"),
+            "Next_Maintenance_Date": st.column_config.DateColumn(
+                "Next Maintenance",
+                format="YYYY-MM-DD",
+            ),
+        },
+    )
 
-    csv = filtered_df.to_csv(index=False).encode("utf-8")
+    csv = table_df.drop(columns=["Priority_Order"], errors="ignore").to_csv(index=False).encode("utf-8")
     st.download_button(
-        label="Download Dashboard Data as CSV",
+        label="Download Filtered Dashboard Data",
         data=csv,
-        file_name="predictive_maintenance_result.csv",
-        mime="text/csv"
+        file_name="predictive_maintenance_dashboard.csv",
+        mime="text/csv",
     )
 
 
