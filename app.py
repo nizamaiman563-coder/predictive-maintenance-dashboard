@@ -14,7 +14,7 @@ import streamlit as st
 # CONFIGURATION
 # ============================================================
 
-APP_NAME = "ReliabilityIQ"
+APP_NAME = "AI-Driven Predictive Maintenance"
 APP_TITLE = "AI-Driven Predictive Maintenance"
 APP_SUBTITLE = "Industrial equipment reliability and maintenance intelligence"
 APP_DIR = Path(__file__).resolve().parent
