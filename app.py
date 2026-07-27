@@ -1,5 +1,8 @@
+import html
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import plotly.express as px
@@ -11,7 +14,20 @@ import streamlit as st
 # CONFIGURATION
 # ============================================================
 
-DATA_FILE = "machine_data.csv"
+APP_NAME = "ReliabilityIQ"
+APP_TITLE = "AI-Driven Predictive Maintenance"
+APP_SUBTITLE = "Industrial equipment reliability and maintenance intelligence"
+APP_DIR = Path(__file__).resolve().parent
+DATA_FILE = APP_DIR / "machine_data.csv"
+DASHBOARD_REFRESH_SECONDS = 15
+
+
+def local_now():
+    try:
+        return datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
+    except Exception:
+        return datetime.now()
+
 
 COLUMNS = [
     "Machine_ID",
@@ -38,31 +54,106 @@ USERS = {
 }
 
 
+def app_logo_svg(size=54):
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="logoGradient" x1="8" y1="6" x2="64" y2="68" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#60A5FA"/>
+          <stop offset="0.55" stop-color="#2563EB"/>
+          <stop offset="1" stop-color="#14B8A6"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="68" height="68" rx="20" fill="url(#logoGradient)"/>
+      <circle cx="31" cy="35" r="11" stroke="white" stroke-width="4"/>
+      <path d="M31 17V23M31 47V53M13 35H19M43 35H49M18.5 22.5L22.7 26.7M39.3 43.3L43.5 47.5M18.5 47.5L22.7 43.3M39.3 26.7L43.5 22.5" stroke="white" stroke-width="4" stroke-linecap="round"/>
+      <path d="M14 56H25L29 48L35 61L41 51H58" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    """
+
+
 def login_page():
-    st.title("🔐 AI-Driven Predictive Maintenance Scheduling System for Industrial Equipment")
-    st.write("Please enter your username and password to access the system.")
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] {display: none;}
+        [data-testid="stAppViewContainer"] > .main .block-container {
+            max-width: 1160px !important;
+            padding-top: 4.5rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    left, center, right = st.columns([0.55, 1.15, 0.55])
+    with center:
+        st.markdown(
+            f"""
+            <div class="login-brand">
+                <div class="login-logo">{app_logo_svg(66)}</div>
+                <div>
+                    <div class="login-eyebrow">INDUSTRIAL INTELLIGENCE PLATFORM</div>
+                    <h1>{APP_NAME}</h1>
+                    <p>{APP_TITLE}</p>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    login_button = st.button("Login")
+        with st.container(border=True):
+            st.markdown(
+                """
+                <div class="login-copy">
+                    <h2>Secure sign in</h2>
+                    <p>Access live equipment health, reliability indicators, and maintenance priorities.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-    if login_button:
-        if username in USERS and USERS[username] == password:
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-            st.success("Login successful!")
-            st.rerun()
-        else:
-            st.error("Invalid username or password.")
+            with st.form("login_form", clear_on_submit=False):
+                username = st.text_input(
+                    "Username",
+                    placeholder="Enter your authorised username",
+                    autocomplete="username",
+                )
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    placeholder="Enter your password",
+                    autocomplete="current-password",
+                )
+                login_button = st.form_submit_button(
+                    "Sign in to dashboard",
+                    use_container_width=True,
+                    type="primary",
+                )
+
+            if login_button:
+                if username in USERS and USERS[username] == password:
+                    st.session_state["logged_in"] = True
+                    st.session_state["username"] = username
+                    st.success("Access granted. Loading dashboard…")
+                    st.rerun()
+                else:
+                    st.error("The username or password is incorrect.")
+
+        st.markdown(
+            """
+            <div class="login-footer-note">
+                <span class="security-dot"></span>
+                Protected prototype environment · Authorised users only
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def check_login():
-    if "logged_in" not in st.session_state:
-        st.session_state["logged_in"] = False
-
-    if "username" not in st.session_state:
-        st.session_state["username"] = ""
+    st.session_state.setdefault("logged_in", False)
+    st.session_state.setdefault("username", "")
 
     if not st.session_state["logged_in"]:
         login_page()
@@ -70,9 +161,24 @@ def check_login():
 
 
 def logout_button():
-    st.sidebar.write(f"Logged in as: **{st.session_state['username']}**")
+    username = html.escape(st.session_state.get("username", "User"))
+    role = username.split("_")[0] if "_" in username else "User"
 
-    if st.sidebar.button("Logout"):
+    st.sidebar.markdown(
+        f"""
+        <div class="sidebar-user-card">
+            <div class="user-avatar">{username[:1].upper()}</div>
+            <div class="user-meta">
+                <div class="user-name">{username}</div>
+                <div class="user-role">{html.escape(role)} access</div>
+            </div>
+            <span class="online-dot" title="Online"></span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.sidebar.button("Sign out", use_container_width=True):
         st.session_state["logged_in"] = False
         st.session_state["username"] = ""
         st.rerun()
@@ -249,159 +355,437 @@ def calculate_next_maintenance(row):
 
 
 # ============================================================
-# POWER BI-STYLE UI HELPERS
+# MODERN UI HELPERS
 # ============================================================
+
 
 def inject_powerbi_style():
     st.markdown(
         """
         <style>
         :root {
-            --dashboard-bg: #f3f6fb;
-            --dashboard-card: #ffffff;
-            --dashboard-text: #172033;
-            --dashboard-muted: #697386;
-            --dashboard-blue: #2463eb;
-            --dashboard-navy: #13213c;
-            --dashboard-border: #e4e9f2;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --canvas: #f1f5f9;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --blue: #2563eb;
+            --navy: #0f1f3d;
+            --teal: #0f9f82;
+            --amber: #f59e0b;
+            --red: #dc2626;
         }
 
-        .stApp {
-            background: var(--dashboard-bg);
+        html, body, [class*="css"] {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .stApp,
+        [data-testid="stAppViewContainer"] {
+            background:
+                radial-gradient(circle at 86% 5%, rgba(37, 99, 235, 0.08), transparent 22rem),
+                var(--canvas);
+            color: var(--ink);
         }
 
         [data-testid="stHeader"] {
-            background: rgba(243, 246, 251, 0.92);
+            background: rgba(241, 245, 249, 0.82);
+            backdrop-filter: blur(12px);
         }
 
-        [data-testid="stSidebar"] {
-            background: #101b31;
-        }
-
-        [data-testid="stSidebar"] * {
-            color: #f7f9fc;
-        }
-
-        [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div {
-            background: #ffffff;
-            color: #172033;
-            border-radius: 8px;
-        }
-
-        [data-testid="stSidebar"] .stSelectbox svg,
-        [data-testid="stSidebar"] .stSelectbox input {
-            color: #172033;
+        [data-testid="stToolbar"], #MainMenu, footer {
+            visibility: hidden;
         }
 
         .block-container {
-            max-width: 1500px;
+            max-width: 1540px;
+            padding-top: 1.15rem;
+            padding-bottom: 2.5rem;
+        }
+
+        .main h1, .main h2, .main h3, .main h4,
+        .main label, .main [data-testid="stWidgetLabel"] p {
+            color: var(--ink) !important;
+        }
+
+        .main [data-testid="stMarkdownContainer"] > p,
+        .main .stCaptionContainer,
+        .main small {
+            color: var(--muted);
+        }
+
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #0b1730 0%, #10213f 55%, #0b1730 100%);
+            border-right: 1px solid rgba(148, 163, 184, 0.12);
+        }
+
+        [data-testid="stSidebar"] .block-container {
             padding-top: 1.1rem;
-            padding-bottom: 2rem;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: #eaf1ff;
+        }
+
+        [data-testid="stSidebar"] .stButton > button {
+            background: rgba(255,255,255,0.07);
+            color: #f8fbff;
+            border: 1px solid rgba(255,255,255,0.13);
+            border-radius: 10px;
+            min-height: 2.45rem;
+        }
+
+        [data-testid="stSidebar"] .stButton > button:hover {
+            background: rgba(255,255,255,0.13);
+            border-color: rgba(255,255,255,0.24);
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] > div {
+            gap: 0.35rem;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] label {
+            padding: 0.68rem 0.75rem;
+            border-radius: 10px;
+            transition: background 120ms ease, transform 120ms ease;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+            background: rgba(96, 165, 250, 0.11);
+            transform: translateX(2px);
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+            background: linear-gradient(90deg, rgba(37,99,235,0.36), rgba(37,99,235,0.12));
+            box-shadow: inset 3px 0 0 #60a5fa;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.72rem;
+            padding: 0.35rem 0.1rem 1rem;
+        }
+
+        .sidebar-brand-title {
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 1.08rem;
+            line-height: 1.15;
+        }
+
+        .sidebar-brand-subtitle {
+            color: #9fb3d4;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 0.18rem;
+        }
+
+        .sidebar-user-card {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 12px;
+            padding: 0.72rem;
+            margin: 0.35rem 0 0.55rem;
+        }
+
+        .user-avatar {
+            width: 2.1rem;
+            height: 2.1rem;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #3b82f6, #14b8a6);
+            display: grid;
+            place-items: center;
+            color: white;
+            font-weight: 800;
+        }
+
+        .user-meta { min-width: 0; flex: 1; }
+        .user-name { color: #fff; font-weight: 700; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-role { color: #9fb3d4; font-size: 0.7rem; margin-top: 0.12rem; }
+
+        .online-dot, .security-dot {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34,197,94,0.12);
+            display: inline-block;
+        }
+
+        .sidebar-system-card {
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,255,255,0.085);
+            border-radius: 12px;
+            padding: 0.78rem;
+            margin-top: 0.7rem;
+        }
+
+        .sidebar-system-title { color: #9fb3d4; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        .sidebar-system-row { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.48rem; font-size: 0.74rem; }
+        .sidebar-system-row span:first-child { color: #9fb3d4; }
+        .sidebar-system-row span:last-child { color: #f8fbff; font-weight: 650; text-align: right; }
+
+        .login-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 0 0 1rem;
+        }
+
+        .login-logo {
+            filter: drop-shadow(0 12px 24px rgba(37,99,235,0.24));
+            flex: 0 0 auto;
+        }
+
+        .login-eyebrow {
+            color: #2563eb;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.13em;
+        }
+
+        .login-brand h1 {
+            margin: 0.12rem 0 0;
+            color: var(--ink);
+            font-size: 2.15rem;
+            letter-spacing: -0.045em;
+        }
+
+        .login-brand p {
+            margin: 0.2rem 0 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .login-copy h2 { margin: 0; font-size: 1.25rem; color: var(--ink); }
+        .login-copy p { margin: 0.3rem 0 1rem; color: var(--muted); font-size: 0.86rem; }
+        .login-footer-note { text-align: center; color: #64748b; font-size: 0.74rem; margin-top: 0.85rem; }
+        .login-footer-note .security-dot { width: 0.42rem; height: 0.42rem; margin-right: 0.42rem; box-shadow: none; }
+
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background: rgba(255,255,255,0.9);
+            border-color: var(--line) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.07);
+        }
+
+        .stTextInput input,
+        .stNumberInput input,
+        .stDateInput input,
+        [data-baseweb="select"] > div,
+        [data-baseweb="base-input"] > div {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #dbe3ef !important;
+            border-radius: 10px !important;
+        }
+
+        .stTextInput input::placeholder,
+        .stNumberInput input::placeholder {
+            color: #94a3b8 !important;
+        }
+
+        [data-baseweb="popover"] * {
+            color: #0f172a !important;
+        }
+
+        .main .stButton > button,
+        .main .stDownloadButton > button,
+        .main [data-testid="stFormSubmitButton"] > button {
+            border-radius: 10px;
+            min-height: 2.55rem;
+            font-weight: 720;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            color: #172033;
+        }
+
+        .main [data-testid="stFormSubmitButton"] > button[kind="primary"],
+        .main .stButton > button[kind="primary"] {
+            background: linear-gradient(100deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 8px 18px rgba(37,99,235,0.2);
+        }
+
+        .main .stButton > button:hover,
+        .main .stDownloadButton > button:hover {
+            border-color: #93b4f8;
+            color: #1d4ed8;
         }
 
         .dashboard-header {
-            background: linear-gradient(100deg, #13213c 0%, #1c3768 58%, #2463eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            background:
+                radial-gradient(circle at 90% 20%, rgba(96,165,250,0.35), transparent 18rem),
+                linear-gradient(105deg, #0b1730 0%, #17356a 62%, #2563eb 100%);
             color: #ffffff;
-            border-radius: 14px;
-            padding: 22px 26px;
-            margin-bottom: 16px;
-            box-shadow: 0 8px 22px rgba(19, 33, 60, 0.16);
-        }
-
-        .dashboard-header h1 {
-            color: #ffffff;
-            font-size: 1.75rem;
-            margin: 0 0 6px 0;
-            font-weight: 700;
-        }
-
-        .dashboard-header p {
-            color: #dbe7ff;
-            margin: 0;
-            font-size: 0.96rem;
-        }
-
-        .section-title {
-            color: var(--dashboard-text);
-            font-size: 1.03rem;
-            font-weight: 700;
-            margin: 4px 0 8px 0;
-        }
-
-        .kpi-card {
-            background: var(--dashboard-card);
-            border: 1px solid var(--dashboard-border);
-            border-radius: 12px;
-            padding: 15px 17px;
-            min-height: 116px;
-            box-shadow: 0 3px 12px rgba(24, 39, 75, 0.06);
-            position: relative;
+            border-radius: 18px;
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 0.85rem;
+            box-shadow: 0 14px 35px rgba(15,31,61,0.2);
             overflow: hidden;
         }
 
-        .kpi-card::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 5px;
-            background: var(--kpi-color, #2463eb);
+        .dashboard-identity { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+        .dashboard-logo { flex: 0 0 auto; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.2)); }
+        .dashboard-header h1 { color: #ffffff !important; font-size: 1.72rem; line-height: 1.16; margin: 0; letter-spacing: -0.025em; }
+        .dashboard-header p { color: #dce8ff !important; margin: 0.36rem 0 0; font-size: 0.89rem; }
+        .dashboard-header-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+        .hero-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.47rem 0.68rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.11);
+            border: 1px solid rgba(255,255,255,0.16);
+            color: #f8fbff;
+            font-size: 0.72rem;
+            font-weight: 720;
+            white-space: nowrap;
         }
 
-        .kpi-label {
-            color: var(--dashboard-muted);
-            font-size: 0.78rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.055em;
-            margin-left: 3px;
+        .live-pulse {
+            width: 0.52rem;
+            height: 0.52rem;
+            border-radius: 999px;
+            background: #4ade80;
+            box-shadow: 0 0 0 0 rgba(74,222,128,0.65);
+            animation: pulse-ring 1.8s infinite;
         }
 
-        .kpi-value {
-            color: var(--dashboard-text);
-            font-size: 1.9rem;
-            line-height: 1.1;
-            font-weight: 750;
-            margin: 9px 0 5px 3px;
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.55); }
+            70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); }
+            100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
         }
 
-        .kpi-note {
-            color: var(--dashboard-muted);
-            font-size: 0.78rem;
-            margin-left: 3px;
+        .live-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.65rem;
+            background: rgba(255,255,255,0.84);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 0.68rem;
+            margin: 0 0 0.85rem;
+            box-shadow: 0 5px 18px rgba(15,23,42,0.045);
         }
+
+        .live-item { padding: 0.18rem 0.55rem; min-width: 0; border-right: 1px solid #edf1f7; }
+        .live-item:last-child { border-right: none; }
+        .live-label { color: #64748b; text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.61rem; font-weight: 800; }
+        .live-value { color: #0f172a; font-size: 0.82rem; font-weight: 760; margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .live-value.status-good { color: #07815f; }
+        .live-value.status-warning { color: #b45309; }
+        .live-value.status-danger { color: #c81e1e; }
+
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 1rem;
+            margin: 0.15rem 0 0.65rem;
+        }
+        .section-heading h2 { margin: 0; color: var(--ink); font-size: 1.05rem; letter-spacing: -0.015em; }
+        .section-heading p { margin: 0.18rem 0 0; color: var(--muted); font-size: 0.76rem; }
+
+        .kpi-card {
+            background: rgba(255,255,255,0.94);
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            padding: 0.92rem 0.96rem;
+            min-height: 132px;
+            box-shadow: 0 6px 18px rgba(15,23,42,0.055);
+            position: relative;
+            overflow: hidden;
+            transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(15,23,42,0.085); }
+        .kpi-card::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--kpi-color, #2563eb); }
+        .kpi-top { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+        .kpi-icon { width: 2rem; height: 2rem; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--kpi-color) 12%, white); font-size: 1rem; }
+        .kpi-badge { color: var(--kpi-color); background: color-mix(in srgb, var(--kpi-color) 9%, white); border: 1px solid color-mix(in srgb, var(--kpi-color) 18%, white); border-radius: 999px; padding: 0.22rem 0.42rem; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+        .kpi-label { color: #64748b; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.075em; margin-top: 0.72rem; }
+        .kpi-value { color: #0f172a; font-size: 1.72rem; line-height: 1.05; font-weight: 820; margin-top: 0.28rem; letter-spacing: -0.035em; }
+        .kpi-note { color: #64748b; font-size: 0.69rem; margin-top: 0.32rem; }
 
         .insight-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
             background: #ffffff;
-            border: 1px solid var(--dashboard-border);
-            border-left: 5px solid #2463eb;
-            border-radius: 10px;
-            padding: 13px 16px;
-            margin: 4px 0 12px 0;
-            color: var(--dashboard-text);
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--insight-color, #2563eb);
+            border-radius: 13px;
+            padding: 0.85rem 0.95rem;
+            margin: 0.78rem 0 0.9rem;
+            color: #334155;
+            box-shadow: 0 5px 16px rgba(15,23,42,0.04);
         }
+        .insight-symbol { width: 2rem; height: 2rem; display: grid; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--insight-color) 10%, white); flex: 0 0 auto; }
+        .insight-box strong { color: #0f172a; }
+
+        .asset-card {
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 0.82rem;
+            box-shadow: 0 5px 16px rgba(15,23,42,0.045);
+            min-height: 118px;
+        }
+        .asset-card-top { display: flex; align-items: center; gap: 0.65rem; }
+        .asset-symbol { width: 2.25rem; height: 2.25rem; border-radius: 11px; display: grid; place-items: center; background: #f1f5f9; font-size: 1.1rem; }
+        .asset-name { color: #0f172a; font-weight: 780; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .asset-id { color: #64748b; font-size: 0.66rem; margin-top: 0.12rem; }
+        .risk-pill { margin-left: auto; border-radius: 999px; padding: 0.24rem 0.45rem; font-size: 0.59rem; font-weight: 820; white-space: nowrap; }
+        .risk-high { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+        .risk-medium { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+        .risk-low { color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; }
+        .asset-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; margin-top: 0.72rem; }
+        .asset-stat { background: #f8fafc; border-radius: 9px; padding: 0.42rem; }
+        .asset-stat-label { color: #94a3b8; font-size: 0.56rem; text-transform: uppercase; font-weight: 800; }
+        .asset-stat-value { color: #334155; font-size: 0.72rem; font-weight: 760; margin-top: 0.12rem; }
 
         div[data-testid="stPlotlyChart"],
         div[data-testid="stDataFrame"] {
-            background: #ffffff;
-            border: 1px solid var(--dashboard-border);
-            border-radius: 12px;
-            padding: 5px;
-            box-shadow: 0 3px 12px rgba(24, 39, 75, 0.05);
+            background: rgba(255,255,255,0.94);
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            padding: 0.3rem;
+            box-shadow: 0 6px 18px rgba(15,23,42,0.045);
         }
 
-        .stDownloadButton > button {
-            background: #2463eb;
-            color: #ffffff;
-            border: none;
-            border-radius: 8px;
-            font-weight: 650;
-        }
+        [data-testid="stDataFrame"] { overflow: hidden; }
 
-        .stDownloadButton > button:hover {
-            background: #1d4ed8;
-            color: #ffffff;
+        .module-header {
+            background: linear-gradient(110deg, #ffffff, #f8fbff);
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 0.85rem;
+            box-shadow: 0 5px 16px rgba(15,23,42,0.04);
+        }
+        .module-header h1 { margin: 0; font-size: 1.4rem; color: #0f172a; }
+        .module-header p { margin: 0.3rem 0 0; color: #64748b; font-size: 0.8rem; }
+
+        @media (max-width: 900px) {
+            .dashboard-header { align-items: flex-start; flex-direction: column; }
+            .dashboard-header-meta { justify-content: flex-start; }
+            .live-strip { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .live-item:nth-child(2) { border-right: none; }
         }
         </style>
         """,
@@ -409,39 +793,237 @@ def inject_powerbi_style():
     )
 
 
-def render_kpi_card(label, value, note, color):
+def equipment_symbol(machine_type):
+    machine_type = str(machine_type).lower()
+    if "pump" in machine_type:
+        return "💧"
+    if "motor" in machine_type or "gear" in machine_type:
+        return "⚙️"
+    if "compress" in machine_type:
+        return "🌀"
+    if "fan" in machine_type or "cool" in machine_type or "chiller" in machine_type:
+        return "❄️"
+    if "forklift" in machine_type or "handling" in machine_type:
+        return "🏗️"
+    if "weld" in machine_type:
+        return "⚡"
+    if "generator" in machine_type or "power" in machine_type:
+        return "🔋"
+    if "cnc" in machine_type or "machin" in machine_type:
+        return "🦾"
+    if "mixer" in machine_type:
+        return "🔄"
+    return "🏭"
+
+
+def render_kpi_card(label, value, note, color, icon, badge):
     st.markdown(
         f"""
-        <div class="kpi-card" style="--kpi-color: {color};">
-            <div class="kpi-label">{label}</div>
-            <div class="kpi-value">{value}</div>
-            <div class="kpi-note">{note}</div>
+        <div class="kpi-card" style="--kpi-color:{color};">
+            <div class="kpi-top">
+                <div class="kpi-icon">{icon}</div>
+                <div class="kpi-badge">{html.escape(str(badge))}</div>
+            </div>
+            <div class="kpi-label">{html.escape(str(label))}</div>
+            <div class="kpi-value">{html.escape(str(value))}</div>
+            <div class="kpi-note">{html.escape(str(note))}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
+def render_section_heading(title, subtitle=""):
+    st.markdown(
+        f"""
+        <div class="section-heading">
+            <div>
+                <h2>{html.escape(title)}</h2>
+                <p>{html.escape(subtitle)}</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_module_header(title):
+    descriptions = {
+        "Add Machine": "Register a new industrial asset and its baseline maintenance data.",
+        "Update Maintenance Record": "Add the latest operating, failure, downtime, and repair information.",
+        "Edit / Delete Machine": "Maintain the master equipment register and correct asset records.",
+        "Reliability Analytics": "Analyse MTBF, MTTR, availability, failure frequency, and downtime.",
+        "AI Recommendation": "Review risk-based maintenance priorities and recommended actions.",
+        "Maintenance Schedule": "Plan upcoming maintenance based on equipment risk and reliability.",
+        "About Project": "System scope, indicators, modules, formulas, and industrial benefits.",
+    }
+    st.markdown(
+        f"""
+        <div class="module-header">
+            <h1>{html.escape(title)}</h1>
+            <p>{html.escape(descriptions.get(title, APP_SUBTITLE))}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def apply_dashboard_filters(dataframe, selected_types=None, selected_criticality=None, selected_risks=None, search=""):
+    filtered = dataframe.copy()
+    selected_types = selected_types or []
+    selected_criticality = selected_criticality or []
+    selected_risks = selected_risks or []
+
+    if selected_types:
+        filtered = filtered[filtered["Machine_Type"].isin(selected_types)]
+    if selected_criticality:
+        filtered = filtered[filtered["Criticality"].isin(selected_criticality)]
+    if selected_risks:
+        filtered = filtered[filtered["Risk_Level"].isin(selected_risks)]
+    if search:
+        search_mask = (
+            filtered["Machine_ID"].str.contains(search, case=False, na=False)
+            | filtered["Machine_Name"].str.contains(search, case=False, na=False)
+            | filtered["Machine_Type"].str.contains(search, case=False, na=False)
+        )
+        filtered = filtered[search_mask]
+
+    return filtered
+
+
+def get_file_update_time():
+    try:
+        modified = datetime.fromtimestamp(os.path.getmtime(DATA_FILE), tz=local_now().tzinfo)
+        return modified.strftime("%d %b %Y · %H:%M:%S")
+    except Exception:
+        return "Not available"
+
+
+def render_live_overview():
+    def live_content():
+        current_data = calculate_reliability(load_data())
+        current_filtered = apply_dashboard_filters(
+            current_data,
+            st.session_state.get("dashboard_machine_types", []),
+            st.session_state.get("dashboard_criticality", []),
+            st.session_state.get("dashboard_risk", []),
+            st.session_state.get("dashboard_search", ""),
+        )
+
+        high_count = int((current_filtered["Risk_Level"] == "High Risk").sum()) if not current_filtered.empty else 0
+        overdue_count = 0
+        if not current_filtered.empty:
+            due_dates = pd.to_datetime(current_filtered["Next_Maintenance_Date"], errors="coerce")
+            overdue_count = int((due_dates.dt.date < local_now().date()).sum())
+
+        if high_count > 0:
+            health_label = "Attention required"
+            health_class = "status-danger"
+        elif overdue_count > 0:
+            health_label = "Maintenance due"
+            health_class = "status-warning"
+        else:
+            health_label = "Stable operation"
+            health_class = "status-good"
+
+        st.markdown(
+            f"""
+            <div class="live-strip">
+                <div class="live-item">
+                    <div class="live-label">System status</div>
+                    <div class="live-value {health_class}"><span class="live-pulse"></span>&nbsp; {health_label}</div>
+                </div>
+                <div class="live-item">
+                    <div class="live-label">Live asset view</div>
+                    <div class="live-value">{len(current_filtered)} assets · {high_count} high risk</div>
+                </div>
+                <div class="live-item">
+                    <div class="live-label">Data source updated</div>
+                    <div class="live-value">{get_file_update_time()}</div>
+                </div>
+                <div class="live-item">
+                    <div class="live-label">Malaysia time</div>
+                    <div class="live-value">{local_now().strftime('%d %b %Y · %H:%M:%S')}</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if hasattr(st, "fragment"):
+        @st.fragment(run_every=f"{DASHBOARD_REFRESH_SECONDS}s")
+        def live_fragment():
+            live_content()
+        live_fragment()
+    else:
+        live_content()
+
+
+def render_asset_cards(dataframe, maximum=3):
+    priority_order = {"High Risk": 3, "Medium Risk": 2, "Low Risk": 1}
+    assets = dataframe.copy()
+    assets["Priority_Order"] = assets["Risk_Level"].map(priority_order).fillna(0)
+    assets["Next_Maintenance_Date"] = pd.to_datetime(assets["Next_Maintenance_Date"], errors="coerce")
+    assets = assets.sort_values(
+        ["Priority_Order", "Downtime_Hours", "Failure_Count"],
+        ascending=[False, False, False],
+    ).head(maximum)
+
+    columns = st.columns(maximum)
+    for col, (_, row) in zip(columns, assets.iterrows()):
+        risk_class = {
+            "High Risk": "risk-high",
+            "Medium Risk": "risk-medium",
+            "Low Risk": "risk-low",
+        }.get(row["Risk_Level"], "risk-low")
+        next_date = row["Next_Maintenance_Date"]
+        next_text = next_date.strftime("%d %b") if pd.notna(next_date) else "Not set"
+        with col:
+            st.markdown(
+                f"""
+                <div class="asset-card">
+                    <div class="asset-card-top">
+                        <div class="asset-symbol">{equipment_symbol(row['Machine_Type'])}</div>
+                        <div style="min-width:0;">
+                            <div class="asset-name">{html.escape(str(row['Machine_Name']))}</div>
+                            <div class="asset-id">{html.escape(str(row['Machine_ID']))} · {html.escape(str(row['Machine_Type']))}</div>
+                        </div>
+                        <div class="risk-pill {risk_class}">{html.escape(str(row['Risk_Level']))}</div>
+                    </div>
+                    <div class="asset-stats">
+                        <div class="asset-stat"><div class="asset-stat-label">Availability</div><div class="asset-stat-value">{row['Availability']:.1f}%</div></div>
+                        <div class="asset-stat"><div class="asset-stat-label">Downtime</div><div class="asset-stat-value">{row['Downtime_Hours']:.1f} h</div></div>
+                        <div class="asset-stat"><div class="asset-stat-label">Next due</div><div class="asset-stat-value">{next_text}</div></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
 def apply_powerbi_chart_layout(fig, height=360, show_legend=True):
     fig.update_layout(
         height=height,
-        margin=dict(l=20, r=20, t=55, b=20),
+        margin=dict(l=22, r=22, t=58, b=26),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Arial", color="#263248", size=12),
-        title_font=dict(size=15, color="#172033"),
+        font=dict(family="Inter, Arial", color="#334155", size=11),
+        title_font=dict(size=15, color="#0f172a", family="Inter, Arial"),
+        title_x=0.02,
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
             x=1,
+            font=dict(size=10),
         ),
         showlegend=show_legend,
-        hoverlabel=dict(bgcolor="white", font_size=12),
+        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Inter, Arial"),
+        hovermode="closest",
     )
-    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="#dce3ee")
-    fig.update_yaxes(gridcolor="#edf1f7", zeroline=False, linecolor="#dce3ee")
+    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="#dce3ee", tickfont=dict(color="#64748b"))
+    fig.update_yaxes(gridcolor="#edf1f7", zeroline=False, linecolor="#dce3ee", tickfont=dict(color="#64748b"))
     return fig
 
 
@@ -450,15 +1032,14 @@ def apply_powerbi_chart_layout(fig, height=360, show_legend=True):
 # ============================================================
 
 st.set_page_config(
-    page_title="Predictive Maintenance Dashboard",
-    page_icon="🛠️",
-    layout="wide"
+    page_title=f"{APP_NAME} | Predictive Maintenance",
+    page_icon="⚙️",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 inject_powerbi_style()
-
 check_login()
-logout_button()
 
 
 # ============================================================
@@ -473,29 +1054,56 @@ df_result = calculate_reliability(df)
 # SIDEBAR NAVIGATION
 # ============================================================
 
-st.sidebar.title("Navigation")
-
-menu = st.sidebar.selectbox(
-    "Select Module",
-    [
-        "Dashboard",
-        "Add Machine",
-        "Update Maintenance Record",
-        "Edit / Delete Machine",
-        "Reliability Analytics",
-        "AI Recommendation",
-        "Maintenance Schedule",
-        "About Project",
-    ]
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-brand">
+        <div>{app_logo_svg(43)}</div>
+        <div>
+            <div class="sidebar-brand-title">{APP_NAME}</div>
+            <div class="sidebar-brand-subtitle">Equipment intelligence</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.sidebar.divider()
-st.sidebar.write("Data file:")
-st.sidebar.code(DATA_FILE)
+logout_button()
+st.sidebar.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
+
+module_labels = {
+    "Dashboard": "▦  Executive Dashboard",
+    "Add Machine": "＋  Add Machine",
+    "Update Maintenance Record": "↻  Update Maintenance",
+    "Edit / Delete Machine": "✎  Manage Assets",
+    "Reliability Analytics": "⌁  Reliability Analytics",
+    "AI Recommendation": "✦  AI Recommendations",
+    "Maintenance Schedule": "▣  Maintenance Schedule",
+    "About Project": "ⓘ  About Project",
+}
+
+menu = st.sidebar.radio(
+    "Workspace",
+    list(module_labels.keys()),
+    format_func=lambda item: module_labels[item],
+    label_visibility="collapsed",
+)
+
+st.sidebar.markdown("<div style='height:0.45rem'></div>", unsafe_allow_html=True)
+last_sync = get_file_update_time()
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-system-card">
+        <div class="sidebar-system-title">Data connection</div>
+        <div class="sidebar-system-row"><span>Status</span><span><span class="online-dot"></span>&nbsp; Connected</span></div>
+        <div class="sidebar-system-row"><span>Source</span><span>{html.escape(Path(DATA_FILE).name)}</span></div>
+        <div class="sidebar-system-row"><span>Last update</span><span>{html.escape(last_sync)}</span></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 if menu != "Dashboard":
-    st.title("🛠️ AI-Driven Predictive Maintenance Scheduling System")
-    st.caption("Reliability Engineering Dashboard for Industrial Equipment Maintenance")
+    render_module_header(menu)
 
 
 # ============================================================
@@ -504,21 +1112,42 @@ if menu != "Dashboard":
 
 if menu == "Dashboard":
     st.markdown(
-        """
+        f"""
         <div class="dashboard-header">
-            <h1>Predictive Maintenance Executive Dashboard</h1>
-            <p>Real-time reliability, machine-risk, downtime, and maintenance-priority overview.</p>
+            <div class="dashboard-identity">
+                <div class="dashboard-logo">{app_logo_svg(58)}</div>
+                <div>
+                    <h1>Predictive Maintenance Executive Dashboard</h1>
+                    <p>Live reliability, risk, downtime, and maintenance-priority intelligence.</p>
+                </div>
+            </div>
+            <div class="dashboard-header-meta">
+                <span class="hero-chip"><span class="live-pulse"></span> LIVE MONITORING</span>
+                <span class="hero-chip">⚙ {len(df_result)} CONNECTED ASSETS</span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # ------------------------
-    # Dashboard slicers
-    # ------------------------
-    st.markdown('<div class="section-title">Dashboard Filters</div>', unsafe_allow_html=True)
+    render_live_overview()
 
-    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([1.25, 1.25, 1.25, 1.6])
+    # ------------------------
+    # Dashboard filters
+    # ------------------------
+    filter_title_col, filter_action_col = st.columns([6, 1])
+    with filter_title_col:
+        render_section_heading(
+            "Asset filters",
+            "Narrow the live view by equipment type, criticality, risk, or asset identity.",
+        )
+    with filter_action_col:
+        if st.button("↺ Reset filters", use_container_width=True):
+            st.session_state["dashboard_machine_types"] = []
+            st.session_state["dashboard_criticality"] = []
+            st.session_state["dashboard_risk"] = []
+            st.session_state["dashboard_search"] = ""
+            st.rerun()
 
     machine_type_options = sorted(df_result["Machine_Type"].dropna().unique().tolist())
     criticality_options = [
@@ -530,58 +1159,49 @@ if menu == "Dashboard":
         if item in df_result["Risk_Level"].unique()
     ]
 
+    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([1.2, 1.05, 1.05, 1.55])
     with filter_col1:
         selected_types = st.multiselect(
-            "Machine Type",
+            "Machine type",
             machine_type_options,
             placeholder="All machine types",
+            key="dashboard_machine_types",
         )
-
     with filter_col2:
         selected_criticality = st.multiselect(
             "Criticality",
             criticality_options,
-            placeholder="All criticality levels",
+            placeholder="All levels",
+            key="dashboard_criticality",
         )
-
     with filter_col3:
         selected_risks = st.multiselect(
-            "Risk Level",
+            "Risk level",
             risk_options,
-            placeholder="All risk levels",
+            placeholder="All risks",
+            key="dashboard_risk",
         )
-
     with filter_col4:
         search = st.text_input(
-            "Search Asset",
+            "Search asset",
             placeholder="Machine ID, name, or type",
+            key="dashboard_search",
         )
 
-    filtered_df = df_result.copy()
-
-    if selected_types:
-        filtered_df = filtered_df[filtered_df["Machine_Type"].isin(selected_types)]
-
-    if selected_criticality:
-        filtered_df = filtered_df[filtered_df["Criticality"].isin(selected_criticality)]
-
-    if selected_risks:
-        filtered_df = filtered_df[filtered_df["Risk_Level"].isin(selected_risks)]
-
-    if search:
-        search_mask = (
-            filtered_df["Machine_ID"].str.contains(search, case=False, na=False)
-            | filtered_df["Machine_Name"].str.contains(search, case=False, na=False)
-            | filtered_df["Machine_Type"].str.contains(search, case=False, na=False)
-        )
-        filtered_df = filtered_df[search_mask]
+    filtered_df = apply_dashboard_filters(
+        df_result,
+        selected_types,
+        selected_criticality,
+        selected_risks,
+        search,
+    )
 
     if filtered_df.empty:
-        st.warning("No machine records match the selected dashboard filters.")
+        st.warning("No machine records match the selected filters. Reset the filters to restore the full view.")
         st.stop()
 
     # ------------------------
-    # Executive KPI cards
+    # KPI cards
     # ------------------------
     total_machines = len(filtered_df)
     urgent_count = int((filtered_df["Risk_Level"] == "High Risk").sum())
@@ -589,92 +1209,93 @@ if menu == "Dashboard":
     avg_mtbf = filtered_df["MTBF"].mean()
     total_downtime = filtered_df["Downtime_Hours"].sum()
 
+    render_section_heading(
+        "Operational overview",
+        "Key reliability indicators for the current filtered asset population.",
+    )
+
     kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
-
     with kpi1:
-        render_kpi_card(
-            "Total Assets",
-            f"{total_machines}",
-            "Machines in current view",
-            "#2463eb",
-        )
-
+        render_kpi_card("Total assets", f"{total_machines}", "Machines in the current view", "#2563eb", "🏭", "Live view")
     with kpi2:
-        render_kpi_card(
-            "Average Availability",
-            f"{avg_availability:.2f}%",
-            "Target: 95% or higher",
-            "#0f9d76" if avg_availability >= 95 else "#f59e0b",
-        )
-
+        availability_badge = "On target" if avg_availability >= 95 else "Below target"
+        availability_color = "#0f9f82" if avg_availability >= 95 else "#f59e0b"
+        render_kpi_card("Average availability", f"{avg_availability:.2f}%", "Operational target: 95%", availability_color, "⚙️", availability_badge)
     with kpi3:
-        render_kpi_card(
-            "Average MTBF",
-            f"{avg_mtbf:.1f} h",
-            "Higher means better reliability",
-            "#7c3aed",
-        )
-
+        render_kpi_card("Average MTBF", f"{avg_mtbf:.1f} h", "Higher values indicate stronger reliability", "#7c3aed", "⏱️", "Reliability")
     with kpi4:
-        render_kpi_card(
-            "Total Downtime",
-            f"{total_downtime:.1f} h",
-            "Accumulated downtime hours",
-            "#f59e0b",
-        )
-
+        render_kpi_card("Total downtime", f"{total_downtime:.1f} h", "Accumulated downtime in the current view", "#f59e0b", "⏸️", "Cumulative")
     with kpi5:
-        render_kpi_card(
-            "Urgent Assets",
-            f"{urgent_count}",
-            "High-risk machines",
-            "#dc2626",
-        )
-
-    st.write("")
+        urgent_badge = "Action required" if urgent_count else "Clear"
+        urgent_color = "#dc2626" if urgent_count else "#0f9f82"
+        render_kpi_card("Urgent assets", f"{urgent_count}", "High-risk machines requiring attention", urgent_color, "⚠️", urgent_badge)
 
     availability_gap = max(0, 95 - avg_availability)
-    worst_machine = filtered_df.sort_values(
-        by=["Risk_Level", "Downtime_Hours", "Failure_Count"],
-        key=lambda series: series.map({"High Risk": 3, "Medium Risk": 2, "Low Risk": 1})
-        if series.name == "Risk_Level" else series,
-        ascending=False,
+    priority_order = {"High Risk": 3, "Medium Risk": 2, "Low Risk": 1}
+    insight_df = filtered_df.copy()
+    insight_df["Priority_Order"] = insight_df["Risk_Level"].map(priority_order)
+    worst_machine = insight_df.sort_values(
+        ["Priority_Order", "Downtime_Hours", "Failure_Count"],
+        ascending=[False, False, False],
     ).iloc[0]
 
     if urgent_count > 0:
+        insight_color = "#dc2626"
+        insight_icon = "⚠️"
         insight_text = (
-            f"<b>{urgent_count} machine(s) require urgent attention.</b> "
-            f"The highest-priority asset is {worst_machine['Machine_ID']} - "
-            f"{worst_machine['Machine_Name']}, with {worst_machine['Downtime_Hours']:.1f} "
-            f"downtime hours and {worst_machine['Failure_Count']:.0f} recorded failures."
+            f"<strong>{urgent_count} asset(s) require urgent maintenance.</strong> "
+            f"The highest-priority asset is <strong>{html.escape(str(worst_machine['Machine_ID']))} — "
+            f"{html.escape(str(worst_machine['Machine_Name']))}</strong>, with "
+            f"{worst_machine['Downtime_Hours']:.1f} downtime hours and "
+            f"{worst_machine['Failure_Count']:.0f} recorded failures."
         )
     elif availability_gap > 0:
+        insight_color = "#f59e0b"
+        insight_icon = "◷"
         insight_text = (
             f"No high-risk asset is detected, but average availability is "
-            f"{availability_gap:.2f} percentage points below the 95% operational target."
+            f"<strong>{availability_gap:.2f} percentage points below</strong> the 95% target."
         )
     else:
+        insight_color = "#0f9f82"
+        insight_icon = "✓"
         insight_text = (
-            "Current assets are within the acceptable operating range. "
-            "Continue preventive maintenance and routine condition monitoring."
+            "Assets are operating within the defined reliability range. Continue preventive maintenance "
+            "and routine condition monitoring."
         )
 
     st.markdown(
-        f'<div class="insight-box"><b>Management Insight:</b> {insight_text}</div>',
+        f"""
+        <div class="insight-box" style="--insight-color:{insight_color};">
+            <div class="insight-symbol">{insight_icon}</div>
+            <div><strong>Management insight</strong><br>{insight_text}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
+    render_section_heading(
+        "Priority equipment",
+        "The three assets that currently require the closest management attention.",
+    )
+    render_asset_cards(filtered_df, maximum=min(3, len(filtered_df)))
+    st.markdown("<div style='height:0.55rem'></div>", unsafe_allow_html=True)
+
     # ------------------------
-    # Primary visual row
+    # Primary visuals
     # ------------------------
     risk_colors = {
         "High Risk": "#dc2626",
         "Medium Risk": "#f59e0b",
-        "Low Risk": "#0f9d76",
+        "Low Risk": "#0f9f82",
     }
 
-    visual_left, visual_right = st.columns([0.82, 1.55])
+    render_section_heading(
+        "Reliability and risk analysis",
+        "Interactive charts update immediately when dashboard filters change.",
+    )
 
+    visual_left, visual_right = st.columns([0.78, 1.6])
     with visual_left:
         risk_count = (
             filtered_df["Risk_Level"]
@@ -689,29 +1310,32 @@ if menu == "Dashboard":
                 go.Pie(
                     labels=risk_count["Risk_Level"],
                     values=risk_count["Count"],
-                    hole=0.62,
+                    hole=0.66,
+                    sort=False,
                     marker=dict(
                         colors=[risk_colors.get(level, "#94a3b8") for level in risk_count["Risk_Level"]],
-                        line=dict(color="#ffffff", width=3),
+                        line=dict(color="#ffffff", width=4),
                     ),
                     textinfo="label+value",
-                    hovertemplate="%{label}: %{value} machine(s)<extra></extra>",
+                    textfont=dict(size=11),
+                    hovertemplate="%{label}: %{value} asset(s)<extra></extra>",
                 )
             ]
         )
         fig_risk.add_annotation(
-            text=f"<b>{total_machines}</b><br><span style='font-size:11px'>Assets</span>",
+            text=f"<b>{total_machines}</b><br><span style='font-size:10px;color:#64748b'>ASSETS</span>",
             x=0.5,
             y=0.5,
             showarrow=False,
-            font=dict(size=20, color="#172033"),
+            font=dict(size=22, color="#0f172a"),
         )
-        fig_risk.update_layout(title="Risk Level Distribution")
-        apply_powerbi_chart_layout(fig_risk, height=365, show_legend=False)
+        fig_risk.update_layout(title="Risk distribution")
+        apply_powerbi_chart_layout(fig_risk, height=390, show_legend=False)
         st.plotly_chart(fig_risk, use_container_width=True, config={"displayModeBar": False})
 
     with visual_right:
         availability_chart_df = filtered_df.sort_values("Availability", ascending=True)
+        focused_min = max(0, min(94, float(availability_chart_df["Availability"].min()) - 1.0))
         fig_availability = px.bar(
             availability_chart_df,
             x="Availability",
@@ -720,9 +1344,10 @@ if menu == "Dashboard":
             color="Risk_Level",
             color_discrete_map=risk_colors,
             text="Availability",
-            title="Asset Availability by Machine",
+            title="Asset availability against the 95% target",
             hover_data={
                 "Machine_ID": True,
+                "Machine_Type": True,
                 "Failure_Count": True,
                 "Downtime_Hours": ":.1f",
                 "Availability": ":.2f",
@@ -732,6 +1357,7 @@ if menu == "Dashboard":
             texttemplate="%{text:.1f}%",
             textposition="outside",
             cliponaxis=False,
+            marker_line_width=0,
         )
         fig_availability.add_vline(
             x=95,
@@ -740,16 +1366,15 @@ if menu == "Dashboard":
             annotation_text="95% target",
             annotation_position="top",
         )
-        fig_availability.update_xaxes(range=[0, 103], title="Availability (%)")
-        fig_availability.update_yaxes(title="")
-        apply_powerbi_chart_layout(fig_availability, height=365, show_legend=True)
+        fig_availability.update_xaxes(range=[focused_min, 101.8], title="Availability (%) · focused scale")
+        fig_availability.update_yaxes(title="", automargin=True)
+        apply_powerbi_chart_layout(fig_availability, height=390, show_legend=True)
         st.plotly_chart(fig_availability, use_container_width=True, config={"displayModeBar": False})
 
     # ------------------------
-    # Secondary visual row
+    # Secondary visuals
     # ------------------------
     visual_bottom_left, visual_bottom_right = st.columns(2)
-
     with visual_bottom_left:
         performance_df = filtered_df.sort_values("Downtime_Hours", ascending=False)
         fig_performance = px.scatter(
@@ -761,75 +1386,79 @@ if menu == "Dashboard":
             color_discrete_map=risk_colors,
             hover_name="Machine_Name",
             text="Machine_ID",
-            title="Failure Frequency vs Downtime",
+            title="Failure frequency versus downtime",
             hover_data={
+                "Machine_Type": True,
                 "Operating_Hours": ":.0f",
                 "Availability": ":.2f",
                 "MTBF": ":.2f",
             },
             size_max=38,
         )
-        fig_performance.update_traces(textposition="top center")
-        fig_performance.update_xaxes(title="Failure Count")
-        fig_performance.update_yaxes(title="Downtime Hours")
-        apply_powerbi_chart_layout(fig_performance, height=370, show_legend=True)
+        fig_performance.update_traces(textposition="top center", marker=dict(opacity=0.86, line=dict(width=1, color="white")))
+        fig_performance.update_xaxes(title="Recorded failures")
+        fig_performance.update_yaxes(title="Downtime hours")
+        apply_powerbi_chart_layout(fig_performance, height=385, show_legend=True)
         st.plotly_chart(fig_performance, use_container_width=True, config={"displayModeBar": False})
 
     with visual_bottom_right:
         maintenance_df = filtered_df.copy()
-        maintenance_df["Next_Maintenance_Date"] = pd.to_datetime(
-            maintenance_df["Next_Maintenance_Date"],
-            errors="coerce",
-        )
+        maintenance_df["Next_Maintenance_Date"] = pd.to_datetime(maintenance_df["Next_Maintenance_Date"], errors="coerce")
         maintenance_df["Days_To_Maintenance"] = (
-            maintenance_df["Next_Maintenance_Date"] - pd.Timestamp(date.today())
-        ).dt.days
+            maintenance_df["Next_Maintenance_Date"].dt.date - local_now().date()
+        ).apply(lambda value: value.days if pd.notna(value) else None)
+        maintenance_df["Schedule_Status"] = maintenance_df["Days_To_Maintenance"].apply(
+            lambda days: "Overdue" if pd.notna(days) and days < 0 else (
+                "Due ≤ 7 days" if pd.notna(days) and days <= 7 else "Scheduled"
+            )
+        )
         maintenance_df = maintenance_df.sort_values("Days_To_Maintenance").head(10)
+        schedule_colors = {"Overdue": "#dc2626", "Due ≤ 7 days": "#f59e0b", "Scheduled": "#2563eb"}
 
         fig_schedule = px.bar(
             maintenance_df,
             x="Days_To_Maintenance",
             y="Machine_Name",
             orientation="h",
-            color="Risk_Level",
-            color_discrete_map=risk_colors,
+            color="Schedule_Status",
+            color_discrete_map=schedule_colors,
             text="Days_To_Maintenance",
-            title="Maintenance Timing: Top 10 Assets",
+            title="Maintenance due status · top 10 assets",
             hover_data={
                 "Machine_ID": True,
+                "Risk_Level": True,
                 "Next_Maintenance_Date": "|%Y-%m-%d",
                 "Maintenance_Priority": True,
             },
         )
         fig_schedule.update_traces(
-            texttemplate="%{text} days",
+            texttemplate="%{text} d",
             textposition="outside",
             cliponaxis=False,
+            marker_line_width=0,
         )
-        fig_schedule.update_xaxes(title="Days remaining (negative values are overdue)")
-        fig_schedule.update_yaxes(title="", categoryorder="total descending")
-        apply_powerbi_chart_layout(fig_schedule, height=370, show_legend=True)
+        fig_schedule.add_vline(x=0, line_dash="dash", line_color="#64748b")
+        fig_schedule.update_xaxes(title="Days remaining · negative values are overdue")
+        fig_schedule.update_yaxes(title="", categoryorder="total descending", automargin=True)
+        apply_powerbi_chart_layout(fig_schedule, height=385, show_legend=True)
         st.plotly_chart(fig_schedule, use_container_width=True, config={"displayModeBar": False})
 
     # ------------------------
     # Priority table
     # ------------------------
-    st.markdown('<div class="section-title">Asset Priority Register</div>', unsafe_allow_html=True)
+    render_section_heading(
+        "Asset priority register",
+        "Sort, scan, and export the current maintenance-priority view.",
+    )
 
-    priority_order = {"High Risk": 3, "Medium Risk": 2, "Low Risk": 1}
     table_df = filtered_df.copy()
     table_df["Priority_Order"] = table_df["Risk_Level"].map(priority_order)
     table_df = table_df.sort_values(
         by=["Priority_Order", "Downtime_Hours", "Failure_Count"],
         ascending=[False, False, False],
     )
-
     table_df["Status"] = table_df["Risk_Level"].map(
-        {
-            "High Risk": "🔴 High Risk",
-            "Medium Risk": "🟠 Medium Risk",
-            "Low Risk": "🟢 Low Risk",
-        }
+        {"High Risk": "🔴 High Risk", "Medium Risk": "🟠 Medium Risk", "Low Risk": "🟢 Low Risk"}
     )
 
     display_table = table_df[
@@ -847,40 +1476,37 @@ if menu == "Dashboard":
             "Next_Maintenance_Date",
         ]
     ].copy()
-    display_table["Next_Maintenance_Date"] = pd.to_datetime(
-        display_table["Next_Maintenance_Date"],
-        errors="coerce",
-    )
+    display_table["Next_Maintenance_Date"] = pd.to_datetime(display_table["Next_Maintenance_Date"], errors="coerce")
 
     st.dataframe(
         display_table,
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Status": st.column_config.TextColumn("Risk Status"),
-            "Availability": st.column_config.ProgressColumn(
-                "Availability",
-                format="%.2f%%",
-                min_value=0,
-                max_value=100,
-            ),
-            "MTBF": st.column_config.NumberColumn("MTBF (hours)", format="%.2f"),
+            "Status": st.column_config.TextColumn("Risk status"),
+            "Machine_ID": st.column_config.TextColumn("Asset ID"),
+            "Machine_Name": st.column_config.TextColumn("Equipment"),
+            "Availability": st.column_config.ProgressColumn("Availability", format="%.2f%%", min_value=0, max_value=100),
+            "MTBF": st.column_config.NumberColumn("MTBF (h)", format="%.2f"),
             "Failure_Count": st.column_config.NumberColumn("Failures", format="%d"),
-            "Downtime_Hours": st.column_config.NumberColumn("Downtime (hours)", format="%.1f"),
-            "Next_Maintenance_Date": st.column_config.DateColumn(
-                "Next Maintenance",
-                format="YYYY-MM-DD",
-            ),
+            "Downtime_Hours": st.column_config.NumberColumn("Downtime (h)", format="%.1f"),
+            "Next_Maintenance_Date": st.column_config.DateColumn("Next maintenance", format="DD MMM YYYY"),
         },
     )
 
+    download_col, refresh_col, spacer_col = st.columns([1.45, 1, 5])
     csv = table_df.drop(columns=["Priority_Order"], errors="ignore").to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="Download Filtered Dashboard Data",
-        data=csv,
-        file_name="predictive_maintenance_dashboard.csv",
-        mime="text/csv",
-    )
+    with download_col:
+        st.download_button(
+            label="↓ Export current view",
+            data=csv,
+            file_name="predictive_maintenance_dashboard.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    with refresh_col:
+        if st.button("↻ Refresh data", use_container_width=True):
+            st.rerun()
 
 
 # ============================================================
