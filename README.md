@@ -1,30 +1,27 @@
-POWER BI-STYLE PREDICTIVE MAINTENANCE DASHBOARD
+# ReliabilityIQ — Modern Streamlit Predictive Maintenance Dashboard
 
-Files
-- predictive_maintenance_powerbi_dashboard.py
-- requirements_dashboard.txt
+## Run locally
 
-How to run on Windows
-1. Place the Python file in your project folder.
-2. Open Command Prompt or PowerShell in that folder.
-3. Install dependencies:
-   pip install -r requirements_dashboard.txt
-4. Start the application:
-   streamlit run predictive_maintenance_powerbi_dashboard.py
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-The application automatically creates machine_data.csv if it is not already present.
+## Streamlit Community Cloud
 
-Default login examples
-- Admin_Nizam / nizam123
-- Engineer_Naim / naim123
+1. Upload every file and folder in this package to the same GitHub repository.
+2. In Streamlit Community Cloud, select `app.py` as the main file.
+3. Keep `.streamlit/config.toml` in the repository so the light theme and readable text colours are applied.
 
-Main dashboard improvements
-- Power BI-style executive header and visual theme
-- Interactive filters for machine type, criticality, risk, and search
-- KPI cards for assets, availability, MTBF, downtime, and urgent machines
-- Risk distribution donut chart
-- Availability-by-machine chart with 95% target line
-- Failure-versus-downtime bubble chart
-- Upcoming/overdue maintenance chart
-- Priority register with availability progress bars
-- Filtered CSV download
+## Main improvements
+
+- Clear, modern login page with visible labels and strong contrast.
+- Custom industrial equipment logo and equipment-type symbols.
+- Live system status, Malaysia time, data-file timestamp, and 15-second status refresh.
+- Modern sidebar navigation and authenticated-user indicator.
+- Improved KPI cards, priority equipment cards, charts, maintenance due status, filters, and export controls.
+- Safer file path handling using the folder containing `app.py`.
+
+## Prototype login accounts
+
+The original prototype credentials remain in `app.py`. Replace the hard-coded `USERS` dictionary with Streamlit Secrets or another secure authentication service before production use.
